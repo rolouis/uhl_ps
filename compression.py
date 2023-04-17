@@ -8,6 +8,7 @@ import tempfile
 from multiprocessing import freeze_support
 
 import pandas as pd
+from matplotlib import pyplot as plt
 from scipy.optimize import differential_evolution
 
 max_workers = multiprocessing.cpu_count() * 2
@@ -16,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 JP2_COMPRESS_PATH = "openjpeg/build/bin/opj_compress"
 JP2_DECOMPRESS_PATH = "openjpeg/build/bin/opj_decompress"
 test_filename = "example.png"
-target_jpeg_qualities = [100, 95, 90, 85, 80]
+target_jpeg_qualities = [i for i in range(1, 100, 5)]
 
 
 # encoder enum
@@ -27,6 +28,7 @@ class Encoder:
     HEIF = "heif"
     WEBP = "webp"
     AVIF = "avif"
+    BPG = 'bpg'
 
 
 def compress_img(img_path, encoder: Encoder, quality=100, keep_file=True) -> int:
@@ -39,7 +41,25 @@ def compress_img(img_path, encoder: Encoder, quality=100, keep_file=True) -> int
     :return:
     """
     logger.info(f"Compressing {img_path} with {encoder} quality {quality}")
-    with tempfile.NamedTemporaryFile(suffix=".jp2") as tmp:
+    suffix = ""
+    if encoder == Encoder.JP2:
+        suffix = ".jp2"
+    elif encoder == Encoder.WEBP:
+        suffix = ".webp"
+    elif encoder == Encoder.JXL:
+        suffix = ".jxl"
+    elif encoder == Encoder.JPG:
+        suffix = ".jpg"
+    elif encoder == Encoder.HEIF:
+        suffix = ".heif"
+    elif encoder == Encoder.AVIF:
+        suffix = ".avif"
+    elif encoder == Encoder.BPG:
+        suffix = ".bpg"
+    else:
+        raise ValueError(f"Unknown encoder {encoder}")
+
+    with tempfile.NamedTemporaryFile(suffix=suffix) as tmp:
         if encoder == Encoder.JP2:
             cmd = [JP2_COMPRESS_PATH, "-i", img_path, "-o", tmp.name, "-q", str(quality)]
             subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -50,7 +70,8 @@ def compress_img(img_path, encoder: Encoder, quality=100, keep_file=True) -> int
             cmd = ["cjxl", img_path, tmp.name, "-q", str(quality)]
             subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         elif encoder == Encoder.JPG:
-            cmd = ["convert", "-quality", str(quality), img_path, tmp.name]
+            cmd = ["convert",   img_path, "-quality",str(quality), tmp.name]
+
             subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         elif encoder == Encoder.HEIF:
             cmd = ["heif-enc", "-q", str(quality), "-o", tmp.name, img_path]
@@ -58,12 +79,15 @@ def compress_img(img_path, encoder: Encoder, quality=100, keep_file=True) -> int
         elif encoder == Encoder.AVIF:
             cmd = ["heif-enc", "-q", str(quality), "-o", tmp.name, "--avif", img_path]
             subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
         else:
             raise ValueError(f"Unknown encoder {encoder}")
+
+        print(" ".join(cmd))
         return os.path.getsize(tmp.name)
 
 EXPERIMENT_ENCODERS = [Encoder.JP2, Encoder.JXL, Encoder.HEIF, Encoder.WEBP, Encoder.AVIF, Encoder.JPG]
-
+#EXPERIMENT_ENCODERS = [Encoder.HEIF]
 
 def get_nearest_quality(file_size: int, encoder: Encoder, img_path=test_filename):
     """
@@ -89,7 +113,7 @@ def get_nearest_quality(file_size: int, encoder: Encoder, img_path=test_filename
 
     bounds = [(0, 100)]
     res = differential_evolution(objective, bounds,
-                                 strategy='best1bin', maxiter=100, disp=False)
+                                 strategy='best1bin', maxiter=20, disp=False)
 
     return res.x[0]
 
@@ -147,4 +171,12 @@ def batch_calculate_target_qualities(png_paths : list):
     return results
 
 if __name__ == '__main__':
-    print(batch_calculate_target_qualities(["example.png"]))
+    ## draw a plot filesize per quality per encoder
+    for encoder in EXPERIMENT_ENCODERS:
+        plt.plot(target_jpeg_qualities, [compress_img(test_filename, encoder, quality) for quality in target_jpeg_qualities],
+                 label=encoder)
+    plt.legend()
+    plt.show()
+
+
+    #print(batch_calculate_target_qualities(["example.png"]))
