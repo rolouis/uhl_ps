@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 JP2_COMPRESS_PATH = "openjpeg/build/bin/opj_compress"
 JP2_DECOMPRESS_PATH = "openjpeg/build/bin/opj_decompress"
-test_filename = "example.png"
+test_filename = "uhl_ps/example.png"
 target_jpeg_qualities = [i for i in range(1, 100, 5)]
 target_jpeg_qualities = [80]
 miter = 100
@@ -22,6 +22,7 @@ miter = 100
 class Encoder:
     JP2 = "jp2"
     JXL = "jxl"
+    JXR = "jxr"
     JPG = "jpg"
     HEIF = "heif"
     WEBP = "webp"
@@ -46,6 +47,8 @@ def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitize
         suffix = ".webp"
     elif encoder == Encoder.JXL:
         suffix = ".jxl"
+    elif encoder == Encoder.JXR:
+        suffix = ".jxr"
     elif encoder == Encoder.JPG:
         suffix = ".jpg"
     elif encoder == Encoder.HEIF:
@@ -70,6 +73,19 @@ def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitize
         elif encoder == Encoder.JXL:
             cmd = ["cjxl", img_path, tmp.name, "-q", str(quality)]
             subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        
+        elif encoder == Encoder.JXR:
+            # jxrencapp takes as input .bmp or .tif images
+            tmp_file2 = tempfile.NamedTemporaryFile(suffix='.bmp')
+            #tmp_file2.close()
+
+            cmd_toBmp = ["convert", img_path, tmp_file2.name]
+            subprocess.run(cmd_toBmp)
+            qual = float(quality)
+            # -q range [1,255] where 1 is lossless (quantization)
+            cmd = ["jxrencapp", "-i", tmp_file2.name,"-o", tmp.name, "-q", str(qual)]
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+           
         elif encoder == Encoder.JPG:
             cmd = ["convert", img_path, "-quality", str(quality), tmp.name]
 
@@ -90,11 +106,11 @@ def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitize
         return os.path.getsize(tmp.name)
 
 
-EXPERIMENT_ENCODERS = [Encoder.JP2, Encoder.JXL, Encoder.HEIF, Encoder.WEBP, Encoder.AVIF, Encoder.JPG]
+#EXPERIMENT_ENCODERS = [Encoder.JP2, Encoder.JXL, Encoder.JXR, Encoder.HEIF, Encoder.WEBP, Encoder.AVIF, Encoder.JPG]
 
-EXPERIMENT_ENCODERS = [Encoder.BPG, Encoder.JP2,  Encoder.HEIF]
+#EXPERIMENT_ENCODERS = [Encoder.BPG, Encoder.JP2, Encoder.JXR, Encoder.HEIF]
 
-# EXPERIMENT_ENCODERS = [Encoder.HEIF]
+EXPERIMENT_ENCODERS = [Encoder.JXR]
 
 def get_nearest_quality(file_size: int, encoder: Encoder, img_path=test_filename):
     """
@@ -130,14 +146,21 @@ def get_nearest_quality(file_size: int, encoder: Encoder, img_path=test_filename
         return res
 
     if encoder == Encoder.BPG:
-        quanizier_bounds = [(0,49)]
+        quantizer_bounds = [(0,49)]
         level_bounds = [(1, 9)]
         res = differential_evolution(
             bpg_objective,
-            bounds=quanizier_bounds + level_bounds,
+            bounds=quantizer_bounds + level_bounds,
             strategy='best1bin', maxiter=miter, disp=False
         )
         return ",".join(str(x) for x in [res.x[0], res.x[1]])
+
+    elif encoder == Encoder.JXR:
+        quantizer_bounds = [(1,255)]
+        res = differential_evolution(objective,quantizer_bounds,
+                                     strategy='best1bin', maxiter=miter, disp=False)
+        return res.x[0]
+
     else:
         bounds = [(0, 100)]
         res = differential_evolution(objective, bounds,
@@ -203,7 +226,7 @@ def batch_calculate_target_qualities(png_paths: list):
 
 if __name__ == '__main__':
     ## draw a plot filesize per quality per encoder
-    for encoder in [ Encoder.HEIF, Encoder.JP2]:
+    for encoder in [Encoder.JXR]:
         plt.plot([1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
                  [compress_img(test_filename, encoder, quality) for quality in [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]],
                  label=encoder)
