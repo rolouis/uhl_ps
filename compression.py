@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 JP2_COMPRESS_PATH = "openjpeg/build/bin/opj_compress"
 JP2_DECOMPRESS_PATH = "openjpeg/build/bin/opj_decompress"
-test_filename = "uhl_ps/example.png"
+test_filename = "example.png"
 target_jpeg_qualities = [i for i in range(1, 100, 5)]
 target_jpeg_qualities = [80]
 miter = 100
@@ -30,7 +30,7 @@ class Encoder:
     BPG = 'bpg'
 
 
-def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitizer=None, keep_file=True) -> int:
+def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitizer=None) -> int:
     """
     Compresses an image to jp2 format, returns the size of the compressed file in bytes
     :param encoder:
@@ -156,7 +156,7 @@ def get_nearest_quality(file_size: int, encoder: Encoder, img_path=test_filename
         return ",".join(str(x) for x in [res.x[0], res.x[1]])
 
     elif encoder == Encoder.JXR:
-        quantizer_bounds = [(1,255)]
+        quantizer_bounds = [(0.0,1.0)]
         res = differential_evolution(objective,quantizer_bounds,
                                      strategy='best1bin', maxiter=miter, disp=False)
         return res.x[0]
@@ -226,28 +226,11 @@ def batch_calculate_target_qualities(png_paths: list):
 
 if __name__ == '__main__':
     ## draw a plot filesize per quality per encoder
+    i = [i * 0.1 for i in range(1, 1001)]
     for encoder in [Encoder.JXR]:
-        plt.plot([1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-                 [compress_img(test_filename, encoder, quality) for quality in [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]],
+        plt.plot(i,
+                 [compress_img(test_filename, encoder, quality * 0.01) for quality in i],
                  label=encoder)
     plt.legend()
     plt.show()
 
-    for l in [1, 2, 3, 4, 5, 6, 7, 8, 9]:
-        plt.plot(range(0, 50),
-                        [compress_img(test_filename, Encoder.BPG, level=l, quanitizer=qant_val) for qant_val in range(0, 50)],
-                        label=f"level: {l}")
-    plt.legend()
-    plt.show()
-
-
-    # d = batch_calculate_target_qualities(["example.png"])
-    # # df from json
-    # df = pd.DataFrame.from_dict(d[0]["example.png"])
-    # print(df)
-    # plot the results
-    # for enc in EXPERIMENT_ENCODERS:
-    #     df = pd.DataFrame.from_dict(d[0]["example.png"])
-    #     df = df[df["encoder"] == enc]
-    #     plt.plot(df["quality"], df["result_file_size"], label=enc)
-    #
