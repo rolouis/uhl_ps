@@ -9,25 +9,18 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from scipy.optimize import differential_evolution
 
+from utils.Encoders import Encoder
+
 max_workers = multiprocessing.cpu_count() * 2
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+test_filename = "images/example.png"
+miter = 1000
+
 JP2_COMPRESS_PATH = "openjpeg/build/bin/opj_compress"
 JP2_DECOMPRESS_PATH = "openjpeg/build/bin/opj_decompress"
-test_filename = "example.png"
-target_jpeg_qualities = [i for i in range(1, 100, 5)]
-target_jpeg_qualities = [80]
-miter = 100
 # encoder enum
-class Encoder:
-    JP2 = "jp2"
-    JXL = "jxl"
-    JXR = "jxr"
-    JPG = "jpg"
-    HEIF = "heif"
-    WEBP = "webp"
-    AVIF = "avif"
-    BPG = 'bpg'
 
 
 def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitizer=None) -> int:
@@ -73,19 +66,19 @@ def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitize
         elif encoder == Encoder.JXL:
             cmd = ["cjxl", img_path, tmp.name, "-q", str(quality)]
             subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        
+
         elif encoder == Encoder.JXR:
             # jxrencapp takes as input .bmp or .tif images
             tmp_file2 = tempfile.NamedTemporaryFile(suffix='.bmp')
-            #tmp_file2.close()
+            # tmp_file2.close()
 
             cmd_toBmp = ["convert", img_path, tmp_file2.name]
             subprocess.run(cmd_toBmp)
             qual = float(quality)
             # -q range [1,255] where 1 is lossless (quantization)
-            cmd = ["jxrencapp", "-i", tmp_file2.name,"-o", tmp.name, "-q", str(qual)]
+            cmd = ["jxrencapp", "-i", tmp_file2.name, "-o", tmp.name, "-q", str(qual)]
             subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-           
+
         elif encoder == Encoder.JPG:
             cmd = ["convert", img_path, "-quality", str(quality), tmp.name]
 
@@ -106,15 +99,17 @@ def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitize
         return os.path.getsize(tmp.name)
 
 
-#EXPERIMENT_ENCODERS = [Encoder.JP2, Encoder.JXL, Encoder.JXR, Encoder.HEIF, Encoder.WEBP, Encoder.AVIF, Encoder.JPG]
+# EXPERIMENT_ENCODERS = [Encoder.JP2, Encoder.JXL, Encoder.JXR, Encoder.HEIF, Encoder.WEBP, Encoder.AVIF, Encoder.JPG]
 
-#EXPERIMENT_ENCODERS = [Encoder.BPG, Encoder.JP2, Encoder.JXR, Encoder.HEIF]
+# EXPERIMENT_ENCODERS = [Encoder.BPG, Encoder.JP2, Encoder.JXR, Encoder.HEIF]
 
 EXPERIMENT_ENCODERS = [Encoder.JXR]
+
 
 def get_nearest_quality(file_size: int, encoder: Encoder, img_path=test_filename):
     """
     Returns the quality that is closest to the given file size
+    :param img_path:
     :param file_size:
     :param encoder:
     :return:
@@ -146,7 +141,7 @@ def get_nearest_quality(file_size: int, encoder: Encoder, img_path=test_filename
         return res
 
     if encoder == Encoder.BPG:
-        quantizer_bounds = [(0,49)]
+        quantizer_bounds = [(0, 49)]
         level_bounds = [(1, 9)]
         res = differential_evolution(
             bpg_objective,
@@ -156,8 +151,8 @@ def get_nearest_quality(file_size: int, encoder: Encoder, img_path=test_filename
         return ",".join(str(x) for x in [res.x[0], res.x[1]])
 
     elif encoder == Encoder.JXR:
-        quantizer_bounds = [(0.0,1.0)]
-        res = differential_evolution(objective,quantizer_bounds,
+        quantizer_bounds = [(0.0, 1.0)]
+        res = differential_evolution(objective, quantizer_bounds,
                                      strategy='best1bin', maxiter=miter, disp=False)
         return res.x[0]
 
@@ -177,7 +172,7 @@ def nearest_quality_worker(v):
     return get_nearest_quality(row["file_size"], row["encoder"], file_path)
 
 
-def get_target_qualities(file_path):
+def get_target_qualities(file_path, target_jpeg_qualities= [80,85,90,95,100]):
     # Get target JPEG sizes in parallel
 
     with multiprocessing.Pool(processes=max_workers) as pool:
@@ -198,18 +193,18 @@ def get_target_qualities(file_path):
         quality_df["nearest_quality"] = pool.map(nearest_quality_worker,
                                                  [(row, file_path) for _, row in quality_df.iterrows()])
 
-    # quality_df["nearest_quality"] = quality_df.apply(
-    #     lambda row: get_nearest_quality(row["file_size"], row["encoder"], file_path),
-    #     axis=1)
-    # also add the  error in file size
     quality_df["error"] = quality_df.apply(
-        lambda row: compress_img(file_path, row["encoder"], quality=row["nearest_quality"]) - row["file_size"] if row['encoder'] != Encoder.BPG else
-        compress_img(file_path, row["encoder"], quanitizer=int(float(row["nearest_quality"].split(",")[1])), level=int(float(row["nearest_quality"].split(",")[0]))) - row["file_size"],
+        lambda row: compress_img(file_path, row["encoder"], quality=row["nearest_quality"]) - row["file_size"] if row[
+                                                                                                                      'encoder'] != Encoder.BPG else
+        compress_img(file_path, row["encoder"], quanitizer=int(float(row["nearest_quality"].split(",")[1])),
+                     level=int(float(row["nearest_quality"].split(",")[0]))) - row["file_size"],
         axis=1)
 
     quality_df["result_file_size"] = quality_df.apply(
-        lambda row: compress_img(file_path, row["encoder"], row["nearest_quality"]) if row['encoder'] != Encoder.BPG else
-        compress_img(file_path, row["encoder"], level=int(float(row["nearest_quality"].split(",")[0])), quanitizer=int(float(row["nearest_quality"].split(",")[1]))),
+        lambda row: compress_img(file_path, row["encoder"], row["nearest_quality"]) if row[
+                                                                                           'encoder'] != Encoder.BPG else
+        compress_img(file_path, row["encoder"], level=int(float(row["nearest_quality"].split(",")[0])),
+                     quanitizer=int(float(row["nearest_quality"].split(",")[1]))),
         axis=1)
 
     return quality_df.to_json(orient="records")
@@ -222,15 +217,3 @@ def batch_calculate_target_qualities(png_paths: list):
         res_dict = {path: json.loads(res_dict)}
         results.append(res_dict)
     return results
-
-
-if __name__ == '__main__':
-    ## draw a plot filesize per quality per encoder
-    i = [i * 0.1 for i in range(1, 1001)]
-    for encoder in [Encoder.JXR]:
-        plt.plot(i,
-                 [compress_img(test_filename, encoder, quality * 0.01) for quality in i],
-                 label=encoder)
-    plt.legend()
-    plt.show()
-
