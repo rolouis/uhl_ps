@@ -74,7 +74,7 @@ def decode_img(img_path, encoder : Encoder) -> str:
 
 
 
-def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitizer=None) -> int:
+def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitizer=None, keep=False) -> int:
     """
     Compresses an image to jp2 format, returns the size of the compressed file in bytes
     :param encoder:
@@ -96,7 +96,7 @@ def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitize
         Encoder.BPG: ".bpg"
     }
     suffix = encoder_suffix.get(encoder, "")
-    with tempfile.NamedTemporaryFile(suffix=suffix) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=not keep) as tmp:
         if encoder == Encoder.JP2:
             cmd = [JP2_COMPRESS_PATH, "-i", img_path, "-o", tmp.name, "-q", str(quality)]
             subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
