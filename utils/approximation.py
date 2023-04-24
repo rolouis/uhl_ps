@@ -22,6 +22,57 @@ JP2_COMPRESS_PATH = "openjpeg/build/bin/opj_compress"
 JP2_DECOMPRESS_PATH = "openjpeg/build/bin/opj_decompress"
 # encoder enum
 
+def decode_img(img_path, encoder : Encoder) -> str:
+    """
+    Decode an image using the given encoder
+    :param img_path:
+    :param encoder:
+    :return:
+    """
+    # get the file suffix
+    with tempfile.NamedTemporaryFile(suffix="png", delete=False) as tmp:
+        if encoder == Encoder.JP2:
+            cmd = [JP2_DECOMPRESS_PATH, "-i", img_path, "-o", tmp.name]
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        elif encoder == Encoder.WEBP:
+            cmd = ["dwebp", "-i",  img_path, "-o", tmp.name]
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        elif encoder == Encoder.JXL:
+            cmd = ["djxl", img_path, tmp.name]
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        elif encoder == Encoder.JXR:
+            # jxrencapp takes as input .bmp or .tif images
+            tmp_file2 = tempfile.NamedTemporaryFile(suffix='.bmp')
+            # tmp_file2.close()
+            cmd = ["jxrdecapp", "-i", img_path, "-o", tmp_file2.name]
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            cmd_topng = ["convert", tmp_file2, tmp.name]
+            subprocess.run(cmd_topng)
+
+
+
+        elif encoder == Encoder.JPG:
+            cmd = ["convert", img_path,  tmp.name]
+
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        elif encoder == Encoder.HEIF:
+            cmd = ["heif-convert",  tmp.name,  img_path]
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        elif encoder == Encoder.AVIF:
+            cmd = ["heif-convert",  tmp.name,  img_path]
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        elif encoder == Encoder.BPG:
+            cmd = ["bpgdec", "-o", tmp.name, img_path]
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        else:
+            raise ValueError(f"Unknown encoder {encoder}")
+
+        print(" ".join(cmd))
+        return os.path.getsize(tmp.name)
+
+
+
 
 def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitizer=None) -> int:
     """
@@ -34,28 +85,17 @@ def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitize
     """
     logger.info(f"Compressing {img_path} with {encoder} quality {quality}")
     suffix = ""
-    if encoder == Encoder.JP2:
-        suffix = ".jp2"
-    elif encoder == Encoder.WEBP:
-        suffix = ".webp"
-    elif encoder == Encoder.JXL:
-        suffix = ".jxl"
-    elif encoder == Encoder.JXR:
-        suffix = ".jxr"
-    elif encoder == Encoder.JPG:
-        suffix = ".jpg"
-    elif encoder == Encoder.HEIF:
-        suffix = ".heif"
-    elif encoder == Encoder.AVIF:
-        suffix = ".avif"
-    elif encoder == Encoder.BPG:
-        suffix = ".bpg"
-        assert quanitizer is not None
-        assert level is not None
-        assert quality is None
-    else:
-        raise ValueError(f"Unknown encoder {encoder}")
-
+    encoder_suffix = {
+        Encoder.JP2: ".jp2",
+        Encoder.WEBP: ".webp",
+        Encoder.JXL: ".jxl",
+        Encoder.JXR: ".jxr",
+        Encoder.JPG: ".jpg",
+        Encoder.HEIF: ".heif",
+        Encoder.AVIF: ".avif",
+        Encoder.BPG: ".bpg"
+    }
+    suffix = encoder_suffix.get(encoder, "")
     with tempfile.NamedTemporaryFile(suffix=suffix) as tmp:
         if encoder == Encoder.JP2:
             cmd = [JP2_COMPRESS_PATH, "-i", img_path, "-o", tmp.name, "-q", str(quality)]

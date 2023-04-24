@@ -24,3 +24,6 @@ def get_image_size(img_path):
 
     return np.prod(get_image_sizes(img_path)) / 8
 
+
+
+
