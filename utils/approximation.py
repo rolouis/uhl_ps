@@ -6,7 +6,6 @@ import subprocess
 import tempfile
 
 import pandas as pd
-from matplotlib import pyplot as plt
 from scipy.optimize import differential_evolution
 
 from utils.Encoders import Encoder
@@ -20,9 +19,11 @@ miter = 1000
 
 JP2_COMPRESS_PATH = "openjpeg/build/bin/opj_compress"
 JP2_DECOMPRESS_PATH = "openjpeg/build/bin/opj_decompress"
+
+
 # encoder enum
 
-def decode_img(img_path, encoder : Encoder) -> str:
+def decode_img(img_path, encoder: Encoder) -> str:
     """
     Decode an image using the given encoder
     :param img_path:
@@ -30,48 +31,43 @@ def decode_img(img_path, encoder : Encoder) -> str:
     :return:
     """
     # get the file suffix
-    with tempfile.NamedTemporaryFile(suffix="png", delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
         if encoder == Encoder.JP2:
             cmd = [JP2_DECOMPRESS_PATH, "-i", img_path, "-o", tmp.name]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         elif encoder == Encoder.WEBP:
-            cmd = ["dwebp", "-i",  img_path, "-o", tmp.name]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            cmd = ["dwebp", "-i", img_path, "-o", tmp.name]
         elif encoder == Encoder.JXL:
             cmd = ["djxl", img_path, tmp.name]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
 
         elif encoder == Encoder.JXR:
             # jxrencapp takes as input .bmp or .tif images
-            tmp_file2 = tempfile.NamedTemporaryFile(suffix='.bmp')
+            tmp_file2 = tempfile.NamedTemporaryFile(suffix='.bmp', delete=False)
             # tmp_file2.close()
             cmd = ["jxrdecapp", "-i", img_path, "-o", tmp_file2.name]
             subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            cmd_topng = ["convert", tmp_file2, tmp.name]
-            subprocess.run(cmd_topng)
+            cmd = ["convert", tmp_file2.name, tmp.name]
 
 
 
         elif encoder == Encoder.JPG:
-            cmd = ["convert", img_path,  tmp.name]
+            cmd = ["convert", img_path, tmp.name]
 
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         elif encoder == Encoder.HEIF:
-            cmd = ["heif-convert",  tmp.name,  img_path]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            cmd = ["heif-convert", tmp.name, img_path]
+
         elif encoder == Encoder.AVIF:
-            cmd = ["heif-convert",  tmp.name,  img_path]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            cmd = ["heif-convert", tmp.name, img_path]
+
         elif encoder == Encoder.BPG:
             cmd = ["bpgdec", "-o", tmp.name, img_path]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
         else:
             raise ValueError(f"Unknown encoder {encoder}")
 
         print(" ".join(cmd))
-        return os.path.getsize(tmp.name)
-
-
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return str(tmp.name)
 
 
 def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitizer=None, keep=False) -> int:
@@ -99,13 +95,10 @@ def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitize
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=not keep) as tmp:
         if encoder == Encoder.JP2:
             cmd = [JP2_COMPRESS_PATH, "-i", img_path, "-o", tmp.name, "-q", str(quality)]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         elif encoder == Encoder.WEBP:
             cmd = ["cwebp", "-q", str(quality), img_path, "-o", tmp.name]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         elif encoder == Encoder.JXL:
             cmd = ["cjxl", img_path, tmp.name, "-q", str(quality)]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         elif encoder == Encoder.JXR:
             # jxrencapp takes as input .bmp or .tif images
@@ -117,25 +110,23 @@ def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitize
             qual = float(quality)
             # -q range [1,255] where 1 is lossless (quantization)
             cmd = ["jxrencapp", "-i", tmp_file2.name, "-o", tmp.name, "-q", str(qual)]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         elif encoder == Encoder.JPG:
             cmd = ["convert", img_path, "-quality", str(quality), tmp.name]
-
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         elif encoder == Encoder.HEIF:
             cmd = ["heif-enc", "-q", str(quality), "-o", tmp.name, img_path]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         elif encoder == Encoder.AVIF:
             cmd = ["heif-enc", "-q", str(quality), "-o", tmp.name, "--avif", img_path]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         elif encoder == Encoder.BPG:
             cmd = ["bpgenc", "-m", str(level), "-q", str(quanitizer), "-o", tmp.name, img_path]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
         else:
             raise ValueError(f"Unknown encoder {encoder}")
-
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         print(" ".join(cmd))
+        print("Out name: ", tmp.name)
+        if keep:
+            return os.path.getsize(tmp.name), str(tmp.name)
         return os.path.getsize(tmp.name)
 
 
@@ -212,42 +203,6 @@ def nearest_quality_worker(v):
     return get_nearest_quality(row["file_size"], row["encoder"], file_path)
 
 
-def get_target_qualities(file_path, target_jpeg_qualities= [80,85,90,95,100]):
-    # Get target JPEG sizes in parallel
-
-    with multiprocessing.Pool(processes=max_workers) as pool:
-        target_jpeg_sizes = pool.map(packed_compress_func,
-                                     [(file_path, Encoder.JPG, quality) for quality in target_jpeg_qualities])
-    # Create the dataframe
-    quality_df = pd.DataFrame(
-        {
-            "encoder": [encoder for encoder in EXPERIMENT_ENCODERS for quality in target_jpeg_qualities],
-            "quality": [quality for quality in target_jpeg_qualities for encoder in EXPERIMENT_ENCODERS],
-            "file_size": [file_size for file_size in target_jpeg_sizes for encoder in EXPERIMENT_ENCODERS],
-        }
-    )
-
-    # Add the nearest quality for each encoder
-
-    with multiprocessing.Pool(processes=max_workers) as pool:
-        quality_df["nearest_quality"] = pool.map(nearest_quality_worker,
-                                                 [(row, file_path) for _, row in quality_df.iterrows()])
-
-    quality_df["error"] = quality_df.apply(
-        lambda row: compress_img(file_path, row["encoder"], quality=row["nearest_quality"]) - row["file_size"] if row[
-                                                                                                                      'encoder'] != Encoder.BPG else
-        compress_img(file_path, row["encoder"], quanitizer=int(float(row["nearest_quality"].split(",")[1])),
-                     level=int(float(row["nearest_quality"].split(",")[0]))) - row["file_size"],
-        axis=1)
-
-    quality_df["result_file_size"] = quality_df.apply(
-        lambda row: compress_img(file_path, row["encoder"], row["nearest_quality"]) if row[
-                                                                                           'encoder'] != Encoder.BPG else
-        compress_img(file_path, row["encoder"], level=int(float(row["nearest_quality"].split(",")[0])),
-                     quanitizer=int(float(row["nearest_quality"].split(",")[1]))),
-        axis=1)
-
-    return quality_df.to_json(orient="records")
 
 
 def batch_calculate_target_qualities(png_paths: list):

@@ -1,10 +1,13 @@
 from matplotlib import pyplot as plt
 
+from mediasecurity.target_attributes import wsefgnerginnipgwe
 from utils.Encoders import Encoder
-from utils.approximation import  compress_img, get_nearest_quality
+from utils.approximation import compress_img, get_nearest_quality, decode_img
 from utils.imgtools import get_image_size
 from utils.metrics import get_metrics
 if __name__ == '__main__':
+    wsefgnerginnipgwe()
+    exit()
     ## draw a plot filesize per quality per encoder
     # i = [i * 0.1 for i in range(1, 1001)]
     # for encoder in [Encoder.JXR]:
@@ -22,7 +25,8 @@ if __name__ == '__main__':
     # print(qual)
     # print(f"Target {target} result {compress_img(test_file, Encoder.JPG,qual )} ")
     for i in range(1, 100):
-        print(f"Quality {i} result {compress_img(test_file, Encoder.JXR, i)} ")
+        img_path = compress_img(test_file, Encoder.JXR, i, keep=True)[1]
+        print(f"Quality {i} result { get_metrics(test_file, decode_img(img_path, Encoder.JXR))} ")
 
 
 
