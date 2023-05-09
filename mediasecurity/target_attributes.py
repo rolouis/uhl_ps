@@ -25,7 +25,22 @@ def get_target_qualities(
         Encoder.BPG,
     ],
     max_workers=8,
-):
+) -> str:
+    """
+    Get target qualities for each encoder for a given image and JPEG Qualities
+    :param file_path:
+    :param target_jpeg_qualities:
+    :param experiment_encoders:
+    :param max_workers:
+    :return: Json formated string
+    """
+    """
+    :param file_path: 
+    :param target_jpeg_qualities: 
+    :param experiment_encoders: 
+    :param max_workers: 
+    :return: 
+    """
     # Get target JPEG sizes in parallel
 
     target_jpeg_sizes = get_jpeg_targetsizes(
@@ -34,23 +49,12 @@ def get_target_qualities(
     # Create the dataframe
     quality_df = pd.DataFrame(
         {
-            "encoder": [
-                encoder
-                for encoder in experiment_encoders
-                for quality in target_jpeg_qualities
-            ],
-            "quality": [
-                quality
-                for quality in target_jpeg_qualities
-                for encoder in experiment_encoders
-            ],
-            "file_size": [
-                file_size
-                for file_size in target_jpeg_sizes
-                for encoder in experiment_encoders
-            ],
+            "quality": [quality for quality in target_jpeg_qualities],
+            "file_size": [target_jpeg_sizes[q] for q in target_jpeg_sizes],
         }
     )
+    encoder_df = pd.DataFrame({"encoder": [encoder for encoder in experiment_encoders]})
+    quality_df = pd.merge(quality_df, encoder_df, how="cross")
 
     # Add the nearest quality for each encoder
 
@@ -127,7 +131,6 @@ def wsefgnerginnipgwe():
 
     :return:
     """
-    import pandas as pd
 
     input_stats = get_folder_input_stats("images")
     for key, val in input_stats.items():
