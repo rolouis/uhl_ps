@@ -1,6 +1,8 @@
 import numpy as np
 from PIL import Image
 import cv2
+
+
 def get_image_sizes(image_path):
     # load image using cv2.imread()
     img = cv2.imread(image_path)
@@ -23,7 +25,3 @@ def get_image_size(img_path):
     """
 
     return np.prod(get_image_sizes(img_path)) / 8
-
-
-
-

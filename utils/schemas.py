@@ -6,5 +6,3 @@ Filename;OriginalFileSize;TargetCR;TargetFileSize1;TargetFileSize2;Encoder1;Enco
 Filename;OriginalFileSize;[Encoder;[JPEG80 Size, JPEG85 Size, ...]; [JPEG80 File, JPEG85 File, ...]];
 
 """
-
-

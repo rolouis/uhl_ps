@@ -3,8 +3,6 @@ import sewar
 import cv2
 
 
-
-
 def get_metrics(img1_path, img2_path):
     """
     SSIM, SCC, PSNR, ERGAS,
@@ -42,11 +40,9 @@ def get_metrics(img1_path, img2_path):
     }
 
 
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     example_img_path = "../images/example.png"
     example_img = cv2.imread(example_img_path)
-    #print(sewar.full_ref.ssim(example_img, example_img))
+    # print(sewar.full_ref.ssim(example_img, example_img))
     print(get_metrics(example_img_path, example_img_path))
     pass

@@ -23,6 +23,7 @@ JP2_DECOMPRESS_PATH = "openjpeg/build/bin/opj_decompress"
 
 # encoder enum
 
+
 def decode_img(img_path, encoder: Encoder) -> str:
     """
     Decode an image using the given encoder
@@ -39,16 +40,15 @@ def decode_img(img_path, encoder: Encoder) -> str:
         elif encoder == Encoder.JXL:
             cmd = ["djxl", img_path, tmp.name]
 
-
         elif encoder == Encoder.JXR:
             # jxrencapp takes as input .bmp or .tif images
-            tmp_file2 = tempfile.NamedTemporaryFile(suffix='.bmp', delete=False)
+            tmp_file2 = tempfile.NamedTemporaryFile(suffix=".bmp", delete=False)
             # tmp_file2.close()
             cmd = ["jxrdecapp", "-i", img_path, "-o", tmp_file2.name]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(
+                cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
             cmd = ["convert", tmp_file2.name, tmp.name]
-
-
 
         elif encoder == Encoder.JPG:
             cmd = ["convert", img_path, tmp.name]
@@ -70,7 +70,9 @@ def decode_img(img_path, encoder: Encoder) -> str:
         return str(tmp.name)
 
 
-def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitizer=None, keep=False) -> int:
+def compress_img(
+    img_path, encoder: Encoder, quality=None, level=None, quanitizer=None, keep=False
+) -> int:
     """
     Compresses an image to jp2 format, returns the size of the compressed file in bytes
     :param encoder:
@@ -89,12 +91,20 @@ def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitize
         Encoder.JPG: ".jpg",
         Encoder.HEIF: ".heif",
         Encoder.AVIF: ".avif",
-        Encoder.BPG: ".bpg"
+        Encoder.BPG: ".bpg",
     }
     suffix = encoder_suffix.get(encoder, "")
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=not keep) as tmp:
         if encoder == Encoder.JP2:
-            cmd = [JP2_COMPRESS_PATH, "-i", img_path, "-o", tmp.name, "-q", str(quality)]
+            cmd = [
+                JP2_COMPRESS_PATH,
+                "-i",
+                img_path,
+                "-o",
+                tmp.name,
+                "-q",
+                str(quality),
+            ]
         elif encoder == Encoder.WEBP:
             cmd = ["cwebp", "-q", str(quality), img_path, "-o", tmp.name]
         elif encoder == Encoder.JXL:
@@ -102,7 +112,7 @@ def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitize
 
         elif encoder == Encoder.JXR:
             # jxrencapp takes as input .bmp or .tif images
-            tmp_file2 = tempfile.NamedTemporaryFile(suffix='.bmp')
+            tmp_file2 = tempfile.NamedTemporaryFile(suffix=".bmp")
             # tmp_file2.close()
 
             cmd_toBmp = ["convert", img_path, tmp_file2.name]
@@ -118,7 +128,16 @@ def compress_img(img_path, encoder: Encoder, quality=None, level=None, quanitize
         elif encoder == Encoder.AVIF:
             cmd = ["heif-enc", "-q", str(quality), "-o", tmp.name, "--avif", img_path]
         elif encoder == Encoder.BPG:
-            cmd = ["bpgenc", "-m", str(level), "-q", str(quanitizer), "-o", tmp.name, img_path]
+            cmd = [
+                "bpgenc",
+                "-m",
+                str(level),
+                "-q",
+                str(quanitizer),
+                "-o",
+                tmp.name,
+                img_path,
+            ]
 
         else:
             raise ValueError(f"Unknown encoder {encoder}")
@@ -150,7 +169,9 @@ def get_nearest_quality(file_size: int, encoder: Encoder, img_path=test_filename
 
     def objective(quality):
         compressed_size = compress_img(img_path, encoder, quality[0])
-        logger.info(f"Trying quality {quality[0]} Error: {abs(compressed_size - file_size)}")
+        logger.info(
+            f"Trying quality {quality[0]} Error: {abs(compressed_size - file_size)}"
+        )
         if compressed_size > file_size:
             res = abs(compressed_size - file_size) * 10
         else:
@@ -163,8 +184,12 @@ def get_nearest_quality(file_size: int, encoder: Encoder, img_path=test_filename
     def bpg_objective(params):
         quantizer = params[0]
         level = params[1]
-        compressed_size = compress_img(img_path, encoder, level=level, quanitizer=quantizer)
-        logger.info(f"Trying quality {level} {quantizer} Error: {abs(compressed_size - file_size)}")
+        compressed_size = compress_img(
+            img_path, encoder, level=level, quanitizer=quantizer
+        )
+        logger.info(
+            f"Trying quality {level} {quantizer} Error: {abs(compressed_size - file_size)}"
+        )
         if compressed_size > file_size:
             res = abs(compressed_size - file_size) * 10
         else:
@@ -177,20 +202,24 @@ def get_nearest_quality(file_size: int, encoder: Encoder, img_path=test_filename
         res = differential_evolution(
             bpg_objective,
             bounds=quantizer_bounds + level_bounds,
-            strategy='best1bin', maxiter=miter, disp=False
+            strategy="best1bin",
+            maxiter=miter,
+            disp=False,
         )
         return ",".join(str(x) for x in [res.x[0], res.x[1]])
 
     elif encoder == Encoder.JXR:
         quantizer_bounds = [(0.0, 1.0)]
-        res = differential_evolution(objective, quantizer_bounds,
-                                     strategy='best1bin', maxiter=miter, disp=False)
+        res = differential_evolution(
+            objective, quantizer_bounds, strategy="best1bin", maxiter=miter, disp=False
+        )
         return res.x[0]
 
     else:
         bounds = [(0, 100)]
-        res = differential_evolution(objective, bounds,
-                                     strategy='best1bin', maxiter=miter, disp=False)
+        res = differential_evolution(
+            objective, bounds, strategy="best1bin", maxiter=miter, disp=False
+        )
         return res.x[0]
 
 
@@ -201,8 +230,6 @@ def packed_compress_func(args):
 def nearest_quality_worker(v):
     row, file_path = v
     return get_nearest_quality(row["file_size"], row["encoder"], file_path)
-
-
 
 
 def batch_calculate_target_qualities(png_paths: list):

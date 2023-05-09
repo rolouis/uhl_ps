@@ -5,7 +5,8 @@ from utils.Encoders import Encoder
 from utils.approximation import compress_img, get_nearest_quality, decode_img
 from utils.imgtools import get_image_size
 from utils.metrics import get_metrics
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     wsefgnerginnipgwe()
     exit()
     ## draw a plot filesize per quality per encoder
@@ -26,7 +27,6 @@ if __name__ == '__main__':
     # print(f"Target {target} result {compress_img(test_file, Encoder.JPG,qual )} ")
     for i in range(1, 100):
         img_path = compress_img(test_file, Encoder.JXR, i, keep=True)[1]
-        print(f"Quality {i} result { get_metrics(test_file, decode_img(img_path, Encoder.JXR))} ")
-
-
-
+        print(
+            f"Quality {i} result { get_metrics(test_file, decode_img(img_path, Encoder.JXR))} "
+        )

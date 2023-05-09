@@ -6,4 +6,4 @@ class Encoder:
     HEIF = "heif"
     WEBP = "webp"
     AVIF = "avif"
-    BPG = 'bpg'
+    BPG = "bpg"
