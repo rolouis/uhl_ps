@@ -96,10 +96,15 @@ def compress_img(
     suffix = encoder_suffix.get(encoder, "")
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=not keep) as tmp:
         if encoder == Encoder.JP2:
+            # problem with openjpeg - if input png then error thus converting to bmp first
+            tmp_file2 = tempfile.NamedTemporaryFile(suffix=".bmp")
+            cmd_toBmp = ["convert", img_path, tmp_file2.name]
+            subprocess.run(cmd_toBmp)
+            
             cmd = [
                 JP2_COMPRESS_PATH,
                 "-i",
-                img_path,
+                tmp_file2.name,
                 "-o",
                 tmp.name,
                 "-q",
